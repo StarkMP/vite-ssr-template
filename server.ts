@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import middlewares from '@fastify/express';
+import fastifyMiddie from '@fastify/middie';
+import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
-import express from 'express';
 import Fastify from 'fastify';
 import type { ViteDevServer } from 'vite';
 import { createServer as createViteServer } from 'vite';
@@ -16,15 +16,16 @@ async function createServer() {
 
   const fastify = Fastify({ logger: true });
 
-  await fastify.register(middlewares);
-
   let vite: ViteDevServer | undefined;
   let prodTemplate: string | undefined;
   let prodRender: ((url: string) => Promise<string>) | undefined;
   let beasties: Beasties | undefined;
 
   if (isProd) {
-    fastify.use(express.static(path.resolve(import.meta.dirname, 'dist/client'), { index: false }));
+    await fastify.register(fastifyStatic, {
+      root: path.resolve(import.meta.dirname, 'dist/client'),
+      index: false,
+    });
 
     prodTemplate = fs.readFileSync(
       path.resolve(import.meta.dirname, 'dist/client/index.html'),
@@ -36,6 +37,8 @@ async function createServer() {
 
     beasties = new Beasties({ path: path.resolve(import.meta.dirname, 'dist/client') });
   } else {
+    await fastify.register(fastifyMiddie);
+
     vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'custom',
@@ -44,8 +47,8 @@ async function createServer() {
     fastify.use(vite.middlewares);
   }
 
-  fastify.use('*', async (req, res, next) => {
-    const url = req.originalUrl;
+  fastify.get('/*', async (request, reply) => {
+    const url = request.url;
 
     try {
       let template: string;
@@ -70,10 +73,10 @@ async function createServer() {
         html = await beasties.process(html);
       }
 
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      return reply.type('text/html').send(html);
     } catch (error) {
       vite?.ssrFixStacktrace(error as Error);
-      next(error);
+      throw error;
     }
   });
 

@@ -13,16 +13,17 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@fastify/express": "^4.0.4",
+    "@fastify/compress": "^8.3.1",
+    "@fastify/middie": "^9.3.1",
+    "@fastify/static": "^9.1.0",
     "beasties": "^0.4.2",
-    "express": "^4.21.2",
     "fastify": "^5.8.4",
+    "lru-cache": "^11.3.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@types/express": "^5.0.6",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -43,6 +44,6 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
     "vite": "^8.0.4",
-    "vite-plugin-beasties": "^0.4.2"
+    "vite-plugin-compression": "^0.5.1"
   }
 }
