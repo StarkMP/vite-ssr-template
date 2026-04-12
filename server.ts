@@ -6,6 +6,7 @@ import fastifyMiddie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
 import Fastify from 'fastify';
+import { LRUCache } from 'lru-cache';
 import type { ViteDevServer } from 'vite';
 import { createServer as createViteServer } from 'vite';
 
@@ -23,6 +24,7 @@ async function createServer() {
   let prodTemplate: string | undefined;
   let prodRender: ((url: string) => Promise<string>) | undefined;
   let beasties: Beasties | undefined;
+  let htmlCache: LRUCache<string, string> | undefined;
 
   if (isProd) {
     const assetsRoot = path.resolve(import.meta.dirname, 'dist', 'client', 'assets');
@@ -47,6 +49,7 @@ async function createServer() {
     ({ render: prodRender } = await import('./dist/server/entry-server.js'));
 
     beasties = new Beasties({ path: path.resolve(import.meta.dirname, 'dist/client') });
+    htmlCache = new LRUCache({ max: 500, ttl: 1000 * 60 * 60 });
   } else {
     await fastify.register(fastifyMiddie);
 
@@ -66,6 +69,12 @@ async function createServer() {
       let render: (url: string) => Promise<string>;
 
       if (isProd) {
+        const cached = htmlCache!.get(url);
+
+        if (cached) {
+          return reply.type('text/html').send(cached);
+        }
+
         template = prodTemplate!;
         render = prodRender!;
       } else {
@@ -82,6 +91,7 @@ async function createServer() {
 
       if (beasties) {
         html = await beasties.process(html);
+        htmlCache!.set(url, html);
       }
 
       return reply.type('text/html').send(html);
