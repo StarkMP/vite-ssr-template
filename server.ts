@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import fastifyCompress from '@fastify/compress';
 import fastifyMiddie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
@@ -16,15 +17,25 @@ async function createServer() {
 
   const fastify = Fastify({ logger: true });
 
+  await fastify.register(fastifyCompress, { encodings: ['br', 'gzip'] });
+
   let vite: ViteDevServer | undefined;
   let prodTemplate: string | undefined;
   let prodRender: ((url: string) => Promise<string>) | undefined;
   let beasties: Beasties | undefined;
 
   if (isProd) {
+    const assetsRoot = path.resolve(import.meta.dirname, 'dist', 'client', 'assets');
+
     await fastify.register(fastifyStatic, {
       root: path.resolve(import.meta.dirname, 'dist/client'),
       index: false,
+      preCompressed: true,
+      setHeaders(res, filePath) {
+        if (filePath.startsWith(assetsRoot)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
     });
 
     prodTemplate = fs.readFileSync(
