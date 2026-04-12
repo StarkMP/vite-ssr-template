@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
 import type { FastifyInstance } from 'fastify';
+import { minify as minifyHTML } from 'html-minifier-terser';
 import { LRUCache } from 'lru-cache';
 
 import type { ServerSideRenderingSetup } from './types.ts';
@@ -37,8 +38,16 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     renderApp: (url) => render(url),
     getCached: (url) => htmlCache.get(url),
     async processHtml(url, html) {
-      const processed = await beasties.process(html);
+      const withCriticalCSS = await beasties.process(html);
+      const processed = (await minifyHTML(withCriticalCSS, {
+        collapseWhitespace: true,
+        removeComments: true,
+        minifyCSS: true,
+        minifyJS: true,
+      })) as string;
+
       htmlCache.set(url, processed);
+
       return processed;
     },
   };

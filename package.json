@@ -18,12 +18,14 @@
     "@fastify/static": "^9.1.0",
     "beasties": "^0.4.2",
     "fastify": "^5.8.4",
+    "html-minifier-terser": "^7.2.0",
     "lru-cache": "^11.3.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/html-minifier-terser": "^7.0.2",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
