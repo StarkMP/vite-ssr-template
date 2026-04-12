@@ -39,12 +39,12 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     getCached: (url) => htmlCache.get(url),
     async processHtml(url, html) {
       const withCriticalCSS = await beasties.process(html);
-      const processed = (await minifyHTML(withCriticalCSS, {
+      const processed = await minifyHTML(withCriticalCSS, {
         collapseWhitespace: true,
         removeComments: true,
         minifyCSS: true,
         minifyJS: true,
-      })) as string;
+      });
 
       htmlCache.set(url, processed);
 

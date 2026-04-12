@@ -1,8 +1,7 @@
 import fastifyCompress from '@fastify/compress';
 import Fastify from 'fastify';
 
-import { setupDev } from './src/server/development.ts';
-import { setupProd } from './src/server/production.ts';
+import type { ServerSideRenderingSetup } from './src/server/types.ts';
 
 const PORT = 5173;
 const isProd = process.env.NODE_ENV === 'production';
@@ -13,7 +12,16 @@ async function createServer() {
   const fastify = Fastify({ logger: true });
   await fastify.register(fastifyCompress, { encodings: ['br', 'gzip'] });
 
-  const setup = isProd ? await setupProd(fastify) : await setupDev(fastify);
+  let setup: ServerSideRenderingSetup;
+
+  // directly use prcoess.env to help tsup avoid excess code
+  if (process.env.NODE_ENV === 'production') {
+    const { setupProd } = await import('./src/server/production.ts');
+    setup = await setupProd(fastify);
+  } else {
+    const { setupDev } = await import('./src/server/development.ts');
+    setup = await setupDev(fastify);
+  }
 
   fastify.setNotFoundHandler(async (request, reply) => {
     const url = request.url;
