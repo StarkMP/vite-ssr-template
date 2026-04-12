@@ -8,19 +8,21 @@
     "dev": "tsx watch server.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build --outDir dist/client",
-    "build:server": "vite build --ssr src/entry-server.jsx --outDir dist/server",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
     "preview": "cross-env NODE_ENV=production tsx server.ts",
     "lint": "eslint ."
   },
   "dependencies": {
     "@fastify/express": "^4.0.4",
-    "@types/express": "^5.0.6",
+    "beasties": "^0.4.2",
+    "express": "^4.21.2",
     "fastify": "^5.8.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/express": "^5.0.6",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -14,17 +14,25 @@ const isProd = process.env.NODE_ENV === 'production';
 async function createServer() {
   console.info(`Starting server in ${isProd ? 'production' : 'development'} mode...`);
 
-  const fastify = Fastify({
-    logger: true,
-  });
+  const fastify = Fastify({ logger: true });
 
   await fastify.register(middlewares);
 
   let vite: ViteDevServer | undefined;
+  let prodTemplate: string | undefined;
+  let prodRender: ((url: string) => Promise<string>) | undefined;
   let beasties: Beasties | undefined;
 
   if (isProd) {
     fastify.use(express.static(path.resolve(import.meta.dirname, 'dist/client'), { index: false }));
+
+    prodTemplate = fs.readFileSync(
+      path.resolve(import.meta.dirname, 'dist/client/index.html'),
+      'utf8'
+    );
+
+    // @ts-expect-error bundled path
+    ({ render: prodRender } = await import('./dist/server/entry-server.js'));
 
     beasties = new Beasties({ path: path.resolve(import.meta.dirname, 'dist/client') });
   } else {
@@ -43,25 +51,21 @@ async function createServer() {
       let template: string;
       let render: (url: string) => Promise<string>;
 
-      if (!isProd && vite) {
-        template = fs.readFileSync(path.resolve(import.meta.dirname, 'index.html'), 'utf8');
-        template = await vite.transformIndexHtml(url, template);
-
-        ({ render } = await vite.ssrLoadModule('/src/entry-server.tsx'));
+      if (isProd) {
+        template = prodTemplate!;
+        render = prodRender!;
       } else {
-        template = fs.readFileSync(
-          path.resolve(import.meta.dirname, 'dist/client/index.html'),
-          'utf8'
+        template = await vite!.transformIndexHtml(
+          url,
+          fs.readFileSync(path.resolve(import.meta.dirname, 'index.html'), 'utf8')
         );
 
-        // @ts-expect-error bundled path
-        ({ render } = await import('./dist/server/entry-server.js'));
+        ({ render } = await vite!.ssrLoadModule('/src/entry-server.tsx'));
       }
 
       const appHtml = await render(url);
-      let html = template.replace(`<!--ssr-outlet-->`, () => appHtml);
+      let html = template.replace('<!--ssr-outlet-->', () => appHtml);
 
-      // applying inline critical CSS
       if (beasties) {
         html = await beasties.process(html);
       }
