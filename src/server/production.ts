@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Writable } from 'node:stream';
@@ -39,7 +40,7 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
   const { render } = (await import(entryUrl)) as { render: RenderFn };
   const beasties = new Beasties({ path: DIST_CLIENT });
 
-  type CachedEntry = { compressed: Buffer; didError: boolean };
+  type CachedEntry = { compressed: Buffer; etag: string; didError: boolean };
 
   const htmlCache = new LRUCache<string, CachedEntry>({
     maxSize: HTML_CACHE_MAX_SIZE,
@@ -99,7 +100,8 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     html = await beasties.process(html);
 
     const compressed = brotliCompressSync(Buffer.from(html, 'utf8'));
-    const entry: CachedEntry = { compressed, didError };
+    const etag = `"${createHash('md5').update(compressed).digest('hex')}"`;
+    const entry: CachedEntry = { compressed, etag, didError };
     htmlCache.set(url, entry);
 
     return entry;
@@ -119,6 +121,7 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     reply.raw.writeHead(entry.didError ? 500 : 200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Encoding': 'br',
+      ETag: entry.etag,
     });
     reply.raw.end(entry.compressed);
   }
@@ -130,6 +133,12 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
       const cached = htmlCache.get(url);
 
       if (cached) {
+        if (request.headers['if-none-match'] === cached.etag) {
+          reply.hijack();
+          reply.raw.writeHead(304);
+          reply.raw.end();
+          return;
+        }
         sendEntry(reply, cached);
         return;
       }
