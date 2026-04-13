@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
+import { brotliCompressSync } from 'node:zlib';
 
 import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
@@ -36,10 +37,13 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
   ).href;
   const { render } = (await import(entryUrl)) as { render: RenderFn };
   const beasties = new Beasties({ path: DIST_CLIENT });
-  const htmlCache = new LRUCache<string, string>({ max: 500, ttl: 1000 * 60 * 60 });
-  const inFlight = new Map<string, Promise<{ html: string; didError: boolean }>>();
 
-  async function doRender(url: string): Promise<{ html: string; didError: boolean }> {
+  type CachedEntry = { compressed: Buffer; didError: boolean };
+
+  const htmlCache = new LRUCache<string, CachedEntry>({ max: 500, ttl: 1000 * 60 * 60 });
+  const inFlight = new Map<string, Promise<CachedEntry>>();
+
+  async function doRender(url: string): Promise<CachedEntry> {
     let didError = false;
     let resolveShell!: () => void;
     let rejectShell!: (err: unknown) => void;
@@ -89,18 +93,29 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     let html = htmlStart + appHtml + htmlEnd;
     html = await beasties.process(html);
 
-    htmlCache.set(url, html);
+    const compressed = brotliCompressSync(Buffer.from(html, 'utf8'));
+    const entry: CachedEntry = { compressed, didError };
+    htmlCache.set(url, entry);
 
-    return { html, didError };
+    return entry;
   }
 
-  function renderWithDedup(url: string): Promise<{ html: string; didError: boolean }> {
+  function renderWithDedup(url: string): Promise<CachedEntry> {
     const existing = inFlight.get(url);
     if (existing) return existing;
 
     const promise = doRender(url).finally(() => inFlight.delete(url));
     inFlight.set(url, promise);
     return promise;
+  }
+
+  function sendEntry(reply: FastifyReply, entry: CachedEntry) {
+    reply.hijack();
+    reply.raw.writeHead(entry.didError ? 500 : 200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Encoding': 'br',
+    });
+    reply.raw.end(entry.compressed);
   }
 
   return {
@@ -110,17 +125,14 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
       const cached = htmlCache.get(url);
 
       if (cached) {
-        reply.hijack();
-        reply.raw.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        reply.raw.end(cached, 'utf8');
+        sendEntry(reply, cached);
         return;
       }
 
-      let html: string;
-      let didError: boolean;
+      let entry: CachedEntry;
 
       try {
-        ({ html, didError } = await renderWithDedup(url));
+        entry = await renderWithDedup(url);
       } catch {
         reply.hijack();
         reply.raw.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -128,9 +140,7 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
         return;
       }
 
-      reply.hijack();
-      reply.raw.writeHead(didError ? 500 : 200, { 'Content-Type': 'text/html; charset=utf-8' });
-      reply.raw.end(html, 'utf8');
+      sendEntry(reply, entry);
     },
   };
 };
