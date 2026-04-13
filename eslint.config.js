@@ -51,6 +51,7 @@ export default defineConfig([
       'unicorn/number-literal-case': 'off',
       'unicorn/relative-url-style': 'off',
       'unicorn/prefer-top-level-await': 'off',
+      'unicorn/filename-case': 'off',
 
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
