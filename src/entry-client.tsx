@@ -1,11 +1,12 @@
 import '@/styles/global.scss';
 
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { hydrateRoot } from 'react-dom/client';
 
 import { App } from '@/app';
 
-createRoot(document.querySelector('#root')!).render(
+hydrateRoot(
+  document.querySelector('#root')!,
   <StrictMode>
     <App />
   </StrictMode>

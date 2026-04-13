@@ -24,21 +24,8 @@ async function createServer() {
   }
 
   fastify.setNotFoundHandler(async (request, reply) => {
-    const url = request.url;
-
     try {
-      const cached = setup.getCached?.(url);
-      if (cached) return reply.code(200).type('text/html').send(cached);
-
-      const template = await setup.getTemplate(url);
-      const appHtml = await setup.renderApp(url);
-      let html = template.replace('<!--ssr-outlet-->', () => appHtml);
-
-      if (setup.processHtml) {
-        html = await setup.processHtml(url, html);
-      }
-
-      return reply.code(200).type('text/html').send(html);
+      await setup.handleRequest(request, reply);
     } catch (error) {
       setup.fixStacktrace?.(error as Error);
       throw error;

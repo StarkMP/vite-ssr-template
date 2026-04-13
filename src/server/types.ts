@@ -1,7 +1,6 @@
+import type { FastifyReply, FastifyRequest } from 'fastify';
+
 export type ServerSideRenderingSetup = {
-  getTemplate: (url: string) => Promise<string>;
-  renderApp: (url: string) => Promise<string>;
-  getCached?: (url: string) => string | undefined;
-  processHtml?: (url: string, html: string) => Promise<string>;
+  handleRequest: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   fixStacktrace?: (error: Error) => void;
 };
