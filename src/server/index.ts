@@ -1,7 +1,7 @@
 import fastifyCompress from '@fastify/compress';
 import Fastify from 'fastify';
 
-import type { ServerSideRenderingSetup } from './src/server/types.ts';
+import type { ServerSideRenderingSetup } from './types.ts';
 
 const PORT = 5173;
 const isProd = process.env.NODE_ENV === 'production';
@@ -16,10 +16,10 @@ async function createServer() {
 
   // directly use prcoess.env to help tsup avoid excess code
   if (process.env.NODE_ENV === 'production') {
-    const { setupProd } = await import('./src/server/production.ts');
+    const { setupProd } = await import('./production.ts');
     setup = await setupProd(fastify);
   } else {
-    const { setupDev } = await import('./src/server/development.ts');
+    const { setupDev } = await import('./development.ts');
     setup = await setupDev(fastify);
   }
 

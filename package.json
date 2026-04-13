@@ -5,12 +5,12 @@
   "author": "StarkMP <starkmp.work@gmail.com>",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "tsx watch src/server/index.ts",
     "build": "node --eval \"fs.rmSync('dist',{recursive:true,force:true})\" && npm run build:client && npm run build:server && npm run build:node",
     "build:client": "vite build --outDir dist/client",
     "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
     "build:node": "tsup",
-    "preview": "node dist/node/server.js",
+    "preview": "node dist/node/index.js",
     "lint": "eslint ."
   },
   "dependencies": {
