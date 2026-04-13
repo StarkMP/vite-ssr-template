@@ -33,6 +33,12 @@ async function createServer() {
   });
 
   await fastify.listen({ port: PORT });
+
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.once(signal, () => {
+      void fastify.close().then(() => process.exit(0));
+    });
+  }
 }
 
 void createServer();
