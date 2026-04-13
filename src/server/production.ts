@@ -17,6 +17,7 @@ type RenderFn = (url: string, callbacks: RenderToPipeableStreamOptions) => Pipea
 const DIST_CLIENT = path.join(import.meta.dirname, '../../dist/client');
 const ASSETS_ROOT = path.join(DIST_CLIENT, 'assets');
 const ABORT_DELAY = 10_000;
+const HTML_CACHE_MAX_SIZE = 500 * 1024 * 1024; // 500 MB
 
 export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRenderingSetup> => {
   await fastify.register(fastifyStatic, {
@@ -40,7 +41,11 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
 
   type CachedEntry = { compressed: Buffer; didError: boolean };
 
-  const htmlCache = new LRUCache<string, CachedEntry>({ max: 500, ttl: 1000 * 60 * 60 });
+  const htmlCache = new LRUCache<string, CachedEntry>({
+    maxSize: HTML_CACHE_MAX_SIZE,
+    sizeCalculation: (entry) => entry.compressed.byteLength,
+    ttl: 1000 * 60 * 60,
+  });
   const inFlight = new Map<string, Promise<CachedEntry>>();
 
   async function doRender(url: string): Promise<CachedEntry> {
