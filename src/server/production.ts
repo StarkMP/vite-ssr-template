@@ -45,7 +45,9 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
       const cached = htmlCache.get(url);
 
       if (cached) {
-        reply.code(200).type('text/html').send(cached);
+        reply.hijack();
+        reply.raw.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        reply.raw.end(cached, 'utf8');
         return;
       }
 
@@ -73,7 +75,9 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
         await shellPromise;
       } catch {
         clearTimeout(timer);
-        reply.code(500).type('text/html').send('<h1>Something went wrong</h1>');
+        reply.hijack();
+        reply.raw.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+        reply.raw.end('<h1>Something went wrong</h1>', 'utf8');
         return;
       }
 
@@ -109,10 +113,9 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
 
       htmlCache.set(url, html);
 
-      reply
-        .code(didError ? 500 : 200)
-        .type('text/html')
-        .send(html);
+      reply.hijack();
+      reply.raw.writeHead(didError ? 500 : 200, { 'Content-Type': 'text/html; charset=utf-8' });
+      reply.raw.end(html, 'utf8');
     },
   };
 };
