@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
-import { brotliCompressSync } from 'node:zlib';
+import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 
 import fastifyStatic from '@fastify/static';
 import Beasties from 'beasties';
@@ -102,7 +102,10 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     const compressed = brotliCompressSync(Buffer.from(html, 'utf8'));
     const etag = `"${createHash('md5').update(compressed).digest('hex')}"`;
     const entry: CachedEntry = { compressed, etag, didError };
-    htmlCache.set(url, entry);
+
+    if (!didError) {
+      htmlCache.set(url, entry);
+    }
 
     return entry;
   }
@@ -116,14 +119,16 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
     return promise;
   }
 
-  function sendEntry(reply: FastifyReply, entry: CachedEntry) {
+  function sendEntry(request: FastifyRequest, reply: FastifyReply, entry: CachedEntry) {
+    const acceptsBrotli = request.headers['accept-encoding']?.includes('br') ?? false;
+
     reply.hijack();
     reply.raw.writeHead(entry.didError ? 500 : 200, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Encoding': 'br',
+      ...(acceptsBrotli && { 'Content-Encoding': 'br' }),
       ETag: entry.etag,
     });
-    reply.raw.end(entry.compressed);
+    reply.raw.end(acceptsBrotli ? entry.compressed : brotliDecompressSync(entry.compressed));
   }
 
   return {
@@ -139,7 +144,7 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
           reply.raw.end();
           return;
         }
-        sendEntry(reply, cached);
+        sendEntry(request, reply, cached);
         return;
       }
 
@@ -154,7 +159,7 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
         return;
       }
 
-      sendEntry(reply, entry);
+      sendEntry(request, reply, entry);
     },
   };
 };
