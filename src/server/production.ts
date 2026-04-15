@@ -14,11 +14,13 @@ import type { PipeableStream, RenderToPipeableStreamOptions } from 'react-dom/se
 import type { ServerSideRenderingSetup } from './types.ts';
 
 type RenderFn = (url: string, callbacks: RenderToPipeableStreamOptions) => PipeableStream;
+type CachedEntry = { compressed: Buffer; etag: string; didError: boolean };
 
 const DIST_CLIENT = path.join(import.meta.dirname, '../../dist/client');
 const ASSETS_ROOT = path.join(DIST_CLIENT, 'assets');
 const ABORT_DELAY = 10_000;
 const HTML_CACHE_MAX_SIZE = 500 * 1024 * 1024; // 500 MB
+const HTML_CACHE_TTL = 1000 * 60 * 60;
 
 export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRenderingSetup> => {
   await fastify.register(fastifyStatic, {
@@ -40,12 +42,10 @@ export const setupProd = async (fastify: FastifyInstance): Promise<ServerSideRen
   const { render } = (await import(entryUrl)) as { render: RenderFn };
   const beasties = new Beasties({ path: DIST_CLIENT });
 
-  type CachedEntry = { compressed: Buffer; etag: string; didError: boolean };
-
   const htmlCache = new LRUCache<string, CachedEntry>({
     maxSize: HTML_CACHE_MAX_SIZE,
     sizeCalculation: (entry) => entry.compressed.byteLength,
-    ttl: 1000 * 60 * 60,
+    ttl: HTML_CACHE_TTL,
   });
   const inFlight = new Map<string, Promise<CachedEntry>>();
 
